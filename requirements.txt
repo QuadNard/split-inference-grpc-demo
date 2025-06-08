@@ -1,0 +1,7 @@
+torch
+grpcio
+grpcio-tools
+kafka-python
+# apache-flink or flink-connector (if you use the Python API)
+       # for project-local Neovim LSP
+
