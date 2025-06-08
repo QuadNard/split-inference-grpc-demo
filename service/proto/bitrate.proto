@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package bitrate;
+
+service BitrateService {
+  // Embedding step
+  rpc Prefill (Throughput) returns (Embedding);
+  // Final bitrate prediction
+  rpc Decode (Embedding) returns (Bitrate);
+}
+
+message Throughput {
+  double kbps = 1;
+}
+
+message Embedding {
+  repeated float values = 1;
+}
+
+message Bitrate {
+  double kbps = 1;
+}
+
+
