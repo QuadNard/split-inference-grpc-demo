@@ -1,0 +1,15 @@
+-r requirements.txt
+
+# Testing dependencies
+pytest>=8.0
+pytest-xdist>=3.0
+
+# Linting & Formatting dependencies
+black>=25.1.0
+ruff>=0.11.13
+docformatter>=0.6.0
+
+# Type checking (optional)
+mypy>=1.10.0
+# Notebook support (optional)
+jupyter
