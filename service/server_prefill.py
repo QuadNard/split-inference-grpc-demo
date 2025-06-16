@@ -1,16 +1,21 @@
+"""gRPC server for bitrate prefill using an LSTM model.
+
+This module defines a gRPC service that generates embeddings from input bitrate values
+using a PyTorch LSTM model. It includes graceful shutdown handling and logging.
+"""
+
 import logging
 import os
 import signal
 import sys
 import time
 from concurrent import futures
-from typing import Optional
 
 import grpc
 import torch
 from grpc_reflection.v1alpha import reflection
-from model import BitrateLSTM
 
+from core.model import BitrateLSTM
 from service.proto import bitrate_pb2, bitrate_pb2_grpc
 
 logging.basicConfig(
@@ -25,6 +30,12 @@ logger = logging.getLogger(__name__)
 
 
 class PrefillServicer(bitrate_pb2_grpc.BitrateServiceServicer):
+    """gRPC servicer for handling bitrate prefill requests using an LSTM model.
+
+    This class implements the BitrateServiceServicer interface and provides
+    the prefill method to generate embeddings from input bitrate values.
+    """
+
     def __init__(self):
         """Initialize the servicer with the LSTM model."""
         try:
@@ -35,7 +46,22 @@ class PrefillServicer(bitrate_pb2_grpc.BitrateServiceServicer):
             logger.error(f"Failed to load LSTM model: {e}")
             raise
 
-    def Prefill(self, request, context):
+    def prefill(self, request, context):
+        """Generate an embedding from the input bitrate using the LSTM model.
+
+        Parameters
+        ----------
+        request : bitrate_pb2.PrefillRequest
+            The gRPC request containing the 'kbps' bitrate value.
+        context : grpc.ServicerContext
+            The gRPC context for the call.
+
+        Returns
+        -------
+        bitrate_pb2.Embedding
+            The embedding generated from the LSTM model.
+
+        """
         start_time = time.perf_counter()
 
         try:
@@ -87,9 +113,19 @@ class GracefulServer:
     """Wrapper for gRPC server with graceful shutdown handling."""
 
     def __init__(self, max_workers: int = 16, port: int = 50052):
+        """Initialize the GracefulServer with the specified number of worker threads and port.
+
+        Parameters
+        ----------
+        max_workers : int, optional
+            The maximum number of worker threads for the gRPC server (default is 16).
+        port : int, optional
+            The port number on which the server will listen (default is 50052).
+
+        """
         self.max_workers = max_workers
         self.port = port
-        self.server: Optional[grpc.Server] = None
+        self.server: grpc.Server | None = None
 
     def _setup_signal_handlers(self):
         """Set up signal handlers for graceful shutdown."""
@@ -159,7 +195,7 @@ class GracefulServer:
 
 
 def main():
-    """Main entry point."""
+    """Start the main entry point."""
     # Read configuration from environment
     max_workers = int(os.getenv("GRPC_MAX_WORKERS", "16"))
     port = int(os.getenv("GRPC_PORT", "50052"))
