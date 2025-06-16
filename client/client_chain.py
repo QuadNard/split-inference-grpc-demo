@@ -1,3 +1,9 @@
+"""Client chain for split-inference gRPC demo.
+
+This module implements a client that communicates with prefill and decode servers
+using gRPC to perform bitrate prediction, collect metrics, and handle retries and errors.
+"""
+
 import logging
 import os
 import random
@@ -7,7 +13,7 @@ import threading
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 import grpc
 
@@ -46,6 +52,7 @@ class MetricsCollector:
     """Collects and tracks client metrics."""
 
     def __init__(self):
+        """Initialize the MetricsCollector with default metric values and a thread lock."""
         self.lock = threading.Lock()
         self.reset_metrics()
 
@@ -93,7 +100,7 @@ class MetricsCollector:
             self.failed_requests += 1
             self.error_counts[error_type] = self.error_counts.get(error_type, 0) + 1
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get current statistics."""
         with self.lock:
             if self.successful_requests == 0:
@@ -117,9 +124,9 @@ class MetricsCollector:
                 "failed_requests": self.failed_requests,
                 "success_rate": success_rate,
                 "avg_latency": avg_latency,
-                "min_latency": self.min_latency
-                if self.min_latency != float("inf")
-                else 0.0,
+                "min_latency": (
+                    self.min_latency if self.min_latency != float("inf") else 0.0
+                ),
                 "max_latency": self.max_latency,
                 "error_counts": self.error_counts.copy(),
             }
@@ -129,13 +136,19 @@ class BitrateClient:
     """Enhanced client for bitrate prediction chain."""
 
     def __init__(self, config: ClientConfig):
+        """Initialize the BitrateClient with the given configuration.
+
+        Args:
+            config (ClientConfig): The configuration for the client chain.
+
+        """
         self.config = config
         self.metrics = MetricsCollector()
         self.running = False
-        self.prefill_channel: Optional[grpc.Channel] = None
-        self.decode_channel: Optional[grpc.Channel] = None
-        self.prefill_stub: Optional[bitrate_pb2_grpc.BitrateServiceStub] = None
-        self.decode_stub: Optional[bitrate_pb2_grpc.BitrateServiceStub] = None
+        self.prefill_channel: grpc.Channel | None = None
+        self.decode_channel: grpc.Channel | None = None
+        self.prefill_stub: bitrate_pb2_grpc.BitrateServiceStub | None = None
+        self.decode_stub: bitrate_pb2_grpc.BitrateServiceStub | None = None
 
         # Setup signal handlers
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -227,19 +240,19 @@ class BitrateClient:
             )
             logger.info("Decode server ready")
 
-        except grpc.FutureTimeoutError:
-            raise ConnectionError("Timeout waiting for servers to be ready")
+        except grpc.FutureTimeoutError as err:
+            raise ConnectionError("Timeout waiting for servers to be ready") from err
 
     def _generate_throughput(self) -> float:
         """Generate random throughput value."""
         return random.uniform(self.config.min_throughput, self.config.max_throughput)
 
-    def _make_request_with_retry(self, throughput: float) -> Tuple[float, float, float]:
-        """
-        Make a request with retry logic.
+    def _make_request_with_retry(self, throughput: float) -> tuple[float, float, float]:
+        """Make a request with retry logic.
 
         Returns:
             Tuple of (total_latency, prefill_latency, decode_latency)
+
         """
         last_exception = None
 
@@ -258,7 +271,7 @@ class BitrateClient:
 
         raise last_exception
 
-    def _make_single_request(self, throughput: float) -> Tuple[float, float, float]:
+    def _make_single_request(self, throughput: float) -> tuple[float, float, float]:
         """Make a single request through the chain."""
         total_start = time.perf_counter()
 
@@ -274,9 +287,7 @@ class BitrateClient:
         # Decode request
         decode_start = time.perf_counter()
         with self._grpc_error_handler("DECODE"):
-            result = self.decode_stub.Decode(
-                embedding, timeout=self.config.timeout_seconds
-            )
+            self.decode_stub.Decode(embedding, timeout=self.config.timeout_seconds)
         decode_latency = (time.perf_counter() - decode_start) * 1000
 
         total_latency = (time.perf_counter() - total_start) * 1000
@@ -398,7 +409,7 @@ def load_config_from_env() -> ClientConfig:
 
 
 def main():
-    """Main entry point."""
+    """Start the main entry point."""
     logger.info("Starting Bitrate Client Chain...")
 
     try:

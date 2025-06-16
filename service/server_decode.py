@@ -1,16 +1,22 @@
+"""gRPC server for decoding bitrate embeddings using an LSTM model.
+
+This module implements a gRPC service that receives embedding vectors and decodes them
+back to bitrate values using a trained LSTM model. It includes graceful shutdown handling,
+detailed logging, and input validation.
+"""
+
 import logging
 import os
 import signal
 import sys
 import time
 from concurrent import futures
-from typing import Optional
 
 import grpc
 import torch
 from grpc_reflection.v1alpha import reflection
-from model import BitrateLSTM
 
+from core.model import BitrateLSTM
 from service.proto import bitrate_pb2, bitrate_pb2_grpc
 
 # Configure logging with more detailed format
@@ -38,9 +44,8 @@ class DecodeServicer(bitrate_pb2_grpc.BitrateServiceServicer):
             logger.error(f"Failed to load LSTM model: {e}")
             raise
 
-    def Decode(self, request, context):
-        """
-        Decode embeddings back to bitrate values using the FC layer.
+    def decode(self, request, context):
+        """Decode embeddings back to bitrate values using the FC layer.
 
         Args:
             request: Embedding message containing values list
@@ -48,6 +53,7 @@ class DecodeServicer(bitrate_pb2_grpc.BitrateServiceServicer):
 
         Returns:
             Bitrate message containing the decoded kbps value
+
         """
         start_time = time.perf_counter()
 
@@ -134,9 +140,16 @@ class GracefulDecodeServer:
     """Wrapper for gRPC decode server with graceful shutdown handling."""
 
     def __init__(self, max_workers: int = 4, port: int = 50053):
+        """Initialize the GracefulDecodeServer with worker count and port.
+
+        Args:
+            max_workers (int): Maximum number of worker threads for the server.
+            port (int): Port number to bind the gRPC server.
+
+        """
         self.max_workers = max_workers
         self.port = port
-        self.server: Optional[grpc.Server] = None
+        self.server: grpc.Server | None = None
 
     def _setup_signal_handlers(self):
         """Set up signal handlers for graceful shutdown."""
@@ -208,7 +221,7 @@ class GracefulDecodeServer:
 
 
 def main():
-    """Main entry point."""
+    """Start the main entry point."""
     # Read configuration from environment
     max_workers = int(os.getenv("GRPC_MAX_WORKERS", "4"))
     port = int(os.getenv("GRPC_PORT", "50053"))

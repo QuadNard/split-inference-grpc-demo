@@ -20,5 +20,3 @@ message Embedding {
 message Bitrate {
   double kbps = 1;
 }
-
-
