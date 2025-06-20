@@ -1,6 +1,14 @@
+# ignore raw data
+/data/raw/
+/.venv/
+
 __pycache__/
 *py[cod]
 *$py.class
+
+# Ignore Jupyter Notebook checkpoints
+/data/training_data.parquet
+.ipynb_checkpoints
 
 
 #Virtual enviroment
